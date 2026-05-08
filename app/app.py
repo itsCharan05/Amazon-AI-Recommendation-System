@@ -5,8 +5,8 @@ import time
 import plotly.express as px
 import plotly.graph_objects as go
 
-from surprise import Dataset, Reader, SVD
-from surprise.model_selection import train_test_split
+from scipy.sparse.linalg import svds
+import numpy as np
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -315,18 +315,31 @@ item_name_map = dict(zip(df['item_id'], df['product_name']))
 
 
 # ================================
-# TRAIN SVD MODEL
+# TRAIN SVD MODEL (no scikit-surprise)
 # ================================
 @st.cache_resource
 def train_model(df):
-    reader = Reader(rating_scale=(1, 5))
-    data = Dataset.load_from_df(df[['user_id', 'item_id', 'rating']], reader)
-    trainset, _ = train_test_split(data, test_size=0.2)
-    model = SVD()
-    model.fit(trainset)
-    return model
+    # Build user-item rating matrix
+    user_ids = df['user_id'].unique()
+    item_ids = df['item_id'].unique()
+    user_idx = {u: i for i, u in enumerate(user_ids)}
+    item_idx = {it: i for i, it in enumerate(item_ids)}
 
-model = train_model(df)
+    matrix = np.zeros((len(user_ids), len(item_ids)))
+    for _, row in df.iterrows():
+        matrix[user_idx[row['user_id']], item_idx[row['item_id']]] = row['rating']
+
+    # Mean-center and decompose
+    user_ratings_mean = np.mean(matrix, axis=1)
+    matrix_demeaned = matrix - user_ratings_mean.reshape(-1, 1)
+    k = min(50, min(matrix.shape) - 1)
+    U, sigma, Vt = svds(matrix_demeaned, k=k)
+    sigma = np.diag(sigma)
+    predicted = np.dot(np.dot(U, sigma), Vt) + user_ratings_mean.reshape(-1, 1)
+
+    return predicted, user_idx, item_idx
+
+predicted_ratings, user_idx, item_idx = train_model(df)
 
 
 # ================================
@@ -350,15 +363,22 @@ grouped_reviews, cosine_sim = build_nlp_model(products)
 # SVD RECOMMENDATIONS
 # ================================
 def recommend_svd(user_id, n=5):
+    if user_id not in user_idx:
+        return []
+    uidx = user_idx[user_id]
     user_items = set(df[df['user_id'] == user_id]['item_id'])
-    all_items = df['item_id'].unique()
+    
+    scores = predicted_ratings[uidx]
+    # Map item index back to item_id
+    idx_item = {v: k for k, v in item_idx.items()}
+    
     predictions = [
-        (item, model.predict(user_id, item).est)
-        for item in all_items
-        if item not in user_items
+        (idx_item[i], scores[i])
+        for i in range(len(scores))
+        if idx_item[i] not in user_items
     ]
     predictions.sort(key=lambda x: x[1], reverse=True)
-    return [(item_name_map.get(item, "Unknown"), round(score, 2)) for item, score in predictions[:n]]
+    return [(item_name_map.get(item, "Unknown"), round(float(score), 2)) for item, score in predictions[:n]]
 
 
 # ================================
