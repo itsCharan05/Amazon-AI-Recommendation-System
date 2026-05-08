@@ -1,3 +1,92 @@
+# 🛒 Amazon AI Recommendation System
+
+> An end-to-end AI-powered recommendation system delivering personalized product suggestions using **Collaborative Filtering (SVD)** and **NLP-based Content Filtering (TF-IDF)**.
+
+![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-Dashboard-FF4B4B?logo=streamlit&logoColor=white)
+![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-ML-F7931E?logo=scikit-learn&logoColor=white)
+![Surprise](https://img.shields.io/badge/Surprise-SVD-purple)
+![License](https://img.shields.io/badge/License-MIT-green)
+
+---
+
+## 🚀 Live Demo
+
+👉 **[Open App](https://itscharan05-amazon-ai-recommendation-system-appapp-rw4m4s.streamlit.app/)** 
+
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---|---|
+| 👤 Personalized Recommendations | SVD Matrix Factorization based on user ratings and behavior |
+| 🧠 AI Product Similarity | TF-IDF NLP on review text to find semantically similar products |
+| 🎨 Modern Dashboard UI | Dark theme, glassmorphism cards, responsive Streamlit layout |
+| ⚡ Fast Performance | `@st.cache_data` and `@st.cache_resource` for instant repeat queries |
+
+---
+
+## 🧠 ML Models
+
+| Model | Library | Purpose |
+|---|---|---|
+| SVD (Matrix Factorization) | Surprise | Personalized user recommendations |
+| TF-IDF Vectorization | Scikit-Learn | Text feature extraction from reviews |
+| Cosine Similarity | Scikit-Learn | Similar product detection |
+
+---
+
+## 🏗️ Architecture
+
+```
+User Ratings                    Review Text
+     │                               │
+     ▼                               ▼
+Rating Matrix               TF-IDF Vectorization
+     │                               │
+     ▼                               ▼
+SVD Collaborative              Cosine Similarity
+    Filtering                        │
+     │                               │
+     ▼                               ▼
+Personalized              Similar Product
+Recommendations           Recommendations
+          │                    │
+          └────────┬───────────┘
+                   ▼
+          Streamlit Dashboard
+                   │
+                   ▼
+            Caching Layer
+     (@st.cache_data / @st.cache_resource)
+```
+
+---
+
+## 📂 Project Structure
+
+```
+amazon-recommendation-system/
+│
+├── app/
+│   └── app.py                  # Streamlit dashboard
+│
+├── data/
+│   ├── processed/
+│   │   └── clean_data.csv      # Cleaned dataset
+│   └── raw/
+│       └── amazon-product-review.csv
+│
+├── notebooks/
+│   └── processing.ipynb        # Data preprocessing & EDA
+│
+├── requirements.txt
+├── packages.txt
+├── README.md
+└── .python-version
+```
+
 ---
 
 ## 📊 Dataset
@@ -15,7 +104,7 @@ The dataset includes:
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/amazon-ai-recommendation-system.git
+git clone https://github.com/itsCharan05/amazon-ai-recommendation-system.git
 cd amazon-ai-recommendation-system
 ```
 
@@ -48,9 +137,7 @@ streamlit run app/app.py
 
 ## 🌐 Deployment Options
 
-This app can be deployed on any of the following platforms:
-
-- [Streamlit Community Cloud](https://streamlit.io/cloud) ← recommended for quick sharing
+- [Streamlit Community Cloud](https://streamlit.io/cloud) ← recommended
 - [Render](https://render.com)
 - [Railway](https://railway.app)
 - [Hugging Face Spaces](https://huggingface.co/spaces)
@@ -66,7 +153,7 @@ This app can be deployed on any of the following platforms:
 | Streamlit | Frontend dashboard |
 | Pandas + NumPy | Data processing |
 | Scikit-Learn | TF-IDF vectorization & cosine similarity |
-| Surprise | SVD collaborative filtering |
+| Scipy | SVD collaborative filtering |
 
 ---
 
@@ -78,7 +165,7 @@ This app can be deployed on any of the following platforms:
 - [ ] Real-time recommendations
 - [ ] User authentication
 - [ ] Recommendation REST API
-- [ ] Deep learning recommendation model (e.g. Neural CF)
+- [ ] Deep learning model (Neural CF)
 - [ ] Docker deployment
 - [ ] Cloud database integration
 
@@ -96,12 +183,10 @@ This app can be deployed on any of the following platforms:
 
 ## 🤝 Contributing
 
-Contributions, issues, and feature requests are welcome!
-
 1. Fork the repo
 2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit your changes: `git commit -m 'Add some feature'`
-4. Push to the branch: `git push origin feature/your-feature`
+3. Commit: `git commit -m 'Add some feature'`
+4. Push: `git push origin feature/your-feature`
 5. Open a Pull Request
 
 ---
