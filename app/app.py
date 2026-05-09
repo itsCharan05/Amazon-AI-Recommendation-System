@@ -315,29 +315,68 @@ item_name_map = dict(zip(df['item_id'], df['product_name']))
 
 
 # ================================
-# TRAIN SVD MODEL (no scikit-surprise)
+# TRAIN SVD MODEL (FIXED VERSION)
 # ================================
 @st.cache_resource
 def train_model(df):
-    # Build user-item rating matrix
+
+    # Unique users/items
     user_ids = df['user_id'].unique()
     item_ids = df['item_id'].unique()
+
+    # Index mappings
     user_idx = {u: i for i, u in enumerate(user_ids)}
     item_idx = {it: i for i, it in enumerate(item_ids)}
 
-    matrix = np.zeros((len(user_ids), len(item_ids)))
-    for _, row in df.iterrows():
-        matrix[user_idx[row['user_id']], item_idx[row['item_id']]] = row['rating']
+    # Convert dataframe to sparse matrix indices
+    rows = df['user_id'].map(user_idx)
+    cols = df['item_id'].map(item_idx)
 
-    # Mean-center and decompose
-    user_ratings_mean = np.mean(matrix, axis=1)
-    matrix_demeaned = matrix - user_ratings_mean.reshape(-1, 1)
-    k = min(50, min(matrix.shape) - 1)
+    from scipy.sparse import csr_matrix
+
+    # Create sparse rating matrix
+    matrix = csr_matrix(
+        (df['rating'], (rows, cols)),
+        shape=(len(user_ids), len(item_ids))
+    ).astype(np.float32)
+
+    # Convert to dense for SVD
+    matrix_dense = matrix.toarray()
+
+    # Compute mean ratings ONLY on rated items
+    user_ratings_mean = np.true_divide(
+        matrix_dense.sum(axis=1),
+        (matrix_dense != 0).sum(axis=1)
+    )
+
+    # Replace NaN values
+    user_ratings_mean = np.nan_to_num(user_ratings_mean)
+
+    # Mean center
+    matrix_demeaned = matrix_dense - user_ratings_mean.reshape(-1, 1)
+
+    # Keep missing values as 0
+    matrix_demeaned[matrix_dense == 0] = 0
+
+    # Number of latent factors
+    k = min(50, min(matrix_dense.shape) - 1)
+
+    # Perform SVD
     U, sigma, Vt = svds(matrix_demeaned, k=k)
-    sigma = np.diag(sigma)
-    predicted = np.dot(np.dot(U, sigma), Vt) + user_ratings_mean.reshape(-1, 1)
 
-    return predicted, user_idx, item_idx
+    sigma = np.diag(sigma)
+
+    # Reconstruct predicted ratings
+    predicted_ratings = np.dot(np.dot(U, sigma), Vt)
+
+    # Add user means back
+    predicted_ratings += user_ratings_mean.reshape(-1, 1)
+
+    # Clamp ratings between 1 and 5
+    predicted_ratings = np.clip(predicted_ratings, 1, 5)
+
+    return predicted_ratings, user_idx, item_idx
+
 
 predicted_ratings, user_idx, item_idx = train_model(df)
 
@@ -358,28 +397,58 @@ def build_nlp_model(products):
 
 grouped_reviews, cosine_sim = build_nlp_model(products)
 
-
 # ================================
 # SVD RECOMMENDATIONS
 # ================================
 def recommend_svd(user_id, n=5):
-    if user_id not in user_idx:
-        return []
-    uidx = user_idx[user_id]
-    user_items = set(df[df['user_id'] == user_id]['item_id'])
-    
-    scores = predicted_ratings[uidx]
-    # Map item index back to item_id
-    idx_item = {v: k for k, v in item_idx.items()}
-    
-    predictions = [
-        (idx_item[i], scores[i])
-        for i in range(len(scores))
-        if idx_item[i] not in user_items
-    ]
-    predictions.sort(key=lambda x: x[1], reverse=True)
-    return [(item_name_map.get(item, "Unknown"), round(float(score), 2)) for item, score in predictions[:n]]
 
+    # Cold start handling
+    if user_id not in user_idx:
+
+        popular = (
+            df.groupby('product_name')['rating']
+            .mean()
+            .sort_values(ascending=False)
+            .head(n)
+        )
+
+        return [(name, round(score, 2)) for name, score in popular.items()]
+
+    uidx = user_idx[user_id]
+
+    # Products already rated by user
+    user_items = set(df[df['user_id'] == user_id]['item_id'])
+
+    # Predicted scores
+    scores = np.nan_to_num(predicted_ratings[uidx])
+
+    # Reverse item mapping
+    idx_item = {v: k for k, v in item_idx.items()}
+
+    predictions = []
+
+    for i in range(len(scores)):
+
+        item_id = idx_item[i]
+
+        # Skip already rated items
+        if item_id not in user_items:
+
+            predictions.append((item_id, scores[i]))
+
+    # Sort descending
+    predictions.sort(key=lambda x: x[1], reverse=True)
+
+    # Convert item IDs to product names
+    recommendations = [
+        (
+            item_name_map.get(item, "Unknown Product"),
+            round(float(score), 2)
+        )
+        for item, score in predictions[:n]
+    ]
+
+    return recommendations
 
 # ================================
 # NLP RECOMMENDATIONS
